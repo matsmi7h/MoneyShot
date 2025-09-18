@@ -15,11 +15,11 @@
 
 ### Key Enhancements
 
-# 🔓 **No Domain Join Required** - Execute attacks from any network position with LDAP connectivity
-# 🔑 **NTLM Hash Authentication** - Authenticate using captured NTLM hashes instead of cleartext passwords
-# 🛡️ **Enhanced Safety Features** - Comprehensive attribute restoration verification with interactive prompts
-# ⚡ **Sleep & Jitter Control** - Configurable sleep timing with randomization for stealth operations
-# 📊 **Verbose Logging** - Detailed operation tracking and status reporting
+#### 🔓 **No Domain Join Required** - Execute attacks from any network position with LDAP connectivity
+#### 🔑 **NTLM Hash Authentication** - Authenticate using captured NTLM hashes instead of cleartext passwords
+#### 🛡️ **Enhanced Safety Features** - Comprehensive attribute restoration verification with interactive prompts
+#### ⚡ **Sleep & Jitter Control** - Configurable sleep timing with randomization for stealth operations
+#### 📊 **Verbose Logging** - Detailed operation tracking and status reporting
 
 ## Features
 
