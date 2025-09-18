@@ -96,7 +96,7 @@ python moneyshot.py dc01.example.com -d example.com -u admin -H hash --file targ
 
 **Example targets.txt:**
 ```
-john.doe
+john.stephens
 jane.smith
 bob.wilson
 admin.user
