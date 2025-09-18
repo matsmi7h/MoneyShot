@@ -209,6 +209,3 @@ This tool is intended for authorized penetration testing and security assessment
 - **Original Concept**: Jacopo (antipatico) Scannella - Timeroasting technique - https://github.com/SecuraBV/Timeroast
 - **Targeted Implementation**: Giulio Pierantoni - Targeted Timeroast modifications - https://github.com/OffsecDeer/TargetedTimeroast
 
-## License
-
-This project is provided for educational and authorized testing purposes. Use responsibly and in accordance with applicable laws and regulations.
