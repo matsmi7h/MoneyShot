@@ -51,8 +51,8 @@
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd TargetedTimeroast
+git clone https://github.com/matsmi7h/MoneyShot.git
+cd MoneyShot
 
 # Install dependencies
 pip install -r requirements.txt
@@ -74,7 +74,7 @@ python moneyshot.py dc01.example.com -d example.com -u administrator -p Password
 
 **Using NTLM Hash (NT only):**
 ```bash
-python moneyshot.py dc01.example.com -d example.com -u administrator -H aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0 --victim testuser
+python moneyshot.py dc01.example.com -d example.com -u administrator -H aad3b435b51404eeaad3b435b51404ee:8846f7eaee8fb117ad06bdd830b7586c --victim testuser
 ```
 
 **Using NTLM Hash (LM:NT format):**
